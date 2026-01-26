@@ -1,0 +1,51 @@
+# GitHub Evaluator Configuration
+# Customize these parameters for your evaluation
+
+# GitHub Configuration
+github:
+  token: "${GITHUB_TOKEN}"  # Set via environment variable
+  organization: "classroom"  # GitHub Classroom organization name
+  classroom_prefix: "assignment"  # Pattern for student repos (e.g., assignment-student-name)
+
+# Evaluation Period
+evaluation:
+  start_date: "2024-01-01"  # YYYY-MM-DD format
+  end_date: "2024-12-31"    # YYYY-MM-DD format
+
+# Scoring Weights (must sum to 100)
+scoring:
+  commit_frequency: 25      # % based on number of commits
+  commit_quality: 25        # % based on commit message quality
+  individual_contribution: 30  # % based on individual contribution balance
+  branch_strategy: 10       # % based on proper branch usage
+  documentation: 10         # % based on README and comments
+
+# Commit Quality Scoring
+commit_quality:
+  min_length: 10           # Minimum characters for meaningful commit
+  good_length: 50          # Ideal minimum length
+  quality_keywords:        # Words indicating quality commits
+    - "feature"
+    - "fix"
+    - "refactor"
+    - "docs"
+    - "test"
+
+# Individual Contribution Settings
+contribution:
+  flag_anomaly: 0.8        # Flag if one person has >80% of commits
+  min_commits_for_score: 1 # Minimum commits per person to count
+
+# Thresholds for Grades
+grading:
+  excellent: 90           # A: 90-100
+  good: 80                # B: 80-89
+  satisfactory: 70        # C: 70-79
+  passing: 60             # D: 60-69
+  # Below 60 is F (failing)
+
+# Output Options
+output:
+  format: ["csv", "json", "txt"]  # Report formats
+  directory: "./reports"
+  include_details: true    # Include per-student detailed metrics
