@@ -14,16 +14,22 @@ evaluation:
 
 # Scoring Weights (must sum to 100)
 scoring:
-  commit_frequency: 25      # % based on number of commits
+  commit_frequency: 20      # % based on number of commits
   commit_quality: 25        # % based on commit message quality
   individual_contribution: 30  # % based on individual contribution balance
   branch_strategy: 10       # % based on proper branch usage
   documentation: 10         # % based on README and comments
+  commit_timestamps: 5      # % based on commit distribution over time
+
+# Commit Frequency Settings
+commit_frequency:
+  ideal_commits_per_person: 7  # Ideal number of commits per contributor
+  max_ratio: 1.5               # Cap scoring at this multiple of the ideal total
 
 # Commit Quality Scoring
 commit_quality:
-  min_length: 10           # Minimum characters for meaningful commit
-  good_length: 50          # Ideal minimum length
+  min_length: 10           # Minimum characters for a meaningful commit message
+  good_length: 50          # Length considered a high-quality commit message
   quality_keywords:        # Words indicating quality commits
     - "feature"
     - "fix"
@@ -35,6 +41,30 @@ commit_quality:
 contribution:
   flag_anomaly: 0.8        # Flag if one person has >80% of commits
   min_commits_for_score: 1 # Minimum commits per person to count
+  solo_score: 30           # Score awarded when only one contributor is found
+  anomaly_penalty: 0.7     # Score multiplier applied when an imbalance is detected
+
+# Branch Strategy Settings
+branch_strategy:
+  base_score: 50           # Base score for any repository with branches
+  two_branch_bonus: 30     # Bonus for having at least 2 branches
+  three_branch_bonus: 15   # Additional bonus for at least 3 branches
+  four_branch_bonus: 5     # Additional bonus for at least 4 branches
+  develop_branch_bonus: 5  # Bonus for having a develop/dev branch
+  feature_branch_bonus: 5  # Bonus for having feature/* branches
+
+# Documentation Settings
+documentation:
+  base_score: 50           # Base score for any repository
+  readme_bonus: 30         # Bonus for the presence of a README.md file
+  description_bonus: 20    # Bonus for having a repository description
+
+# Commit Timestamps Settings
+commit_timestamps:
+  min_active_days_ratio: 0.1   # Minimum fraction of evaluation days that should have commits
+  good_active_days_ratio: 0.3  # Fraction of evaluation days considered consistently active
+  last_minute_days: 3          # Days before end_date counted as "last-minute"
+  last_minute_threshold: 0.5   # Flag if more than this fraction of commits are last-minute
 
 # Thresholds for Grades
 grading:

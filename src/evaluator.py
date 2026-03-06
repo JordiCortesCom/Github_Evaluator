@@ -144,6 +144,12 @@ class StudentEvaluator:
             "description": repo.description
         }
         doc_score, doc_details = self.metrics.calculate_documentation_score(repo_data)
+
+        ts_score, ts_details = self.metrics.calculate_commit_timestamps_score(
+            commit_analysis["commits_by_date"],
+            start_date,
+            end_date,
+        )
         
         # Compile metrics
         all_metrics = {
@@ -151,7 +157,8 @@ class StudentEvaluator:
             "commit_quality": (qual_score, qual_details),
             "individual_contribution": (contrib_score, contrib_details),
             "branch_strategy": (branch_score, branch_details),
-            "documentation": (doc_score, doc_details)
+            "documentation": (doc_score, doc_details),
+            "commit_timestamps": (ts_score, ts_details),
         }
         
         # Calculate final score
