@@ -110,33 +110,50 @@ class GradingEngine:
     def _generate_feedback(self, metrics: Dict, score: float) -> str:
         """Generate textual feedback based on score and metrics."""
         feedback = []
+
+        def _get(name):
+            """Return (metric_score, details) from the breakdown entry."""
+            entry = metrics.get(name, {})
+            if isinstance(entry, dict):
+                return entry.get("score", 0), entry.get("details", {})
+            # Fallback for a raw (score, details) tuple
+            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                return entry[0], entry[1]
+            return 0, {}
         
         # Check commit frequency
-        freq_score, freq_details = metrics.get("commit_frequency", (0, {}))
+        freq_score, _ = _get("commit_frequency")
         if freq_score < 60:
             feedback.append("❌ Need more commits - shows less consistent development")
         elif freq_score >= 80:
             feedback.append("✓ Good commit frequency")
         
         # Check commit quality
-        qual_score, qual_details = metrics.get("commit_quality", (0, {}))
+        qual_score, _ = _get("commit_quality")
         if qual_score < 60:
             feedback.append("❌ Commit messages are too short or unclear")
         elif qual_score >= 80:
             feedback.append("✓ Excellent commit message quality")
         
         # Check individual contribution
-        contrib_score, contrib_details = metrics.get("individual_contribution", (0, {}))
+        contrib_score, contrib_details = _get("individual_contribution")
         if contrib_details.get("anomaly_detected"):
             feedback.append(f"⚠️  Unbalanced contributions: {contrib_details['distribution']}")
         elif contrib_score >= 80:
             feedback.append("✓ Balanced team contributions")
         
         # Check branch strategy
-        branch_score, branch_details = metrics.get("branch_strategy", (0, {}))
+        _, branch_details = _get("branch_strategy")
         if branch_details.get("branch_count", 0) < 2:
             feedback.append("⚠️  Use multiple branches for better workflow")
-        
+
+        # Check commit timestamps
+        ts_score, ts_details = _get("commit_timestamps")
+        if ts_details.get("last_minute_detected"):
+            feedback.append("⚠️  Most commits were made last-minute; aim for consistent work throughout the period")
+        elif ts_score >= 80:
+            feedback.append("✓ Commits spread consistently across the evaluation period")
+
         if score >= 90:
             feedback.append("🎉 Excellent overall performance!")
         elif score < 60:
