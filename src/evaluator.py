@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from src.github_client import GitHubClient
+from src.classroom_scraper import ClassroomScraper
 from src.metrics import MetricsExtractor
 from src.grader import GradingEngine
 
@@ -20,10 +21,58 @@ class StudentEvaluator:
         """Initialize evaluator with configuration."""
         self.config = config
         self.github = GitHubClient(config["github"]["token"])
+        self.classroom = ClassroomScraper(config["github"]["token"])
         self.metrics = MetricsExtractor(config)
         self.grader = GradingEngine(config)
         self.results = []
-    
+
+    def evaluate_classroom_assignment(
+        self, assignment_id: int
+    ) -> List[Dict]:
+        """
+        Evaluate all student repositories for a GitHub Classroom assignment.
+
+        Fetches student repos via the Classroom API, then evaluates each one
+        using the same pipeline as :meth:`evaluate_organization`.
+
+        Args:
+            assignment_id: Numeric GitHub Classroom assignment ID.
+
+        Returns:
+            List of evaluation results, one per student submission.
+        """
+        student_repos = self.classroom.get_student_repositories(assignment_id)
+        if not student_repos:
+            logger.warning("No accepted assignments found for assignment %d", assignment_id)
+            return []
+
+        assignment = self.classroom.get_assignment(assignment_id)
+        assignment_title = assignment.get("title", str(assignment_id)) if assignment else str(assignment_id)
+        logger.info(
+            "Evaluating %d student repo(s) for assignment '%s'",
+            len(student_repos),
+            assignment_title,
+        )
+
+        for entry in student_repos:
+            full_name = entry["full_name"]
+            logger.info("Evaluating %s ...", full_name)
+            try:
+                # full_name is "org/repo-name"
+                owner, repo_name = full_name.split("/", 1)
+                repo = self.github.github.get_repo(full_name)
+                result = self.evaluate_repository(repo)
+                # Override student name with the actual Classroom student login
+                result["student"] = entry["student_login"]
+                result["students"] = entry["students"]
+                result["classroom_submitted"] = entry["submitted"]
+                result["classroom_commit_count"] = entry["commit_count"]
+                self.results.append(result)
+            except Exception as exc:
+                logger.error("Failed to evaluate %s: %s", full_name, exc)
+
+        return self.results
+
     def evaluate_organization(self, org: str, pattern: str = None) -> List[Dict]:
         """
         Evaluate all repositories in an organization.

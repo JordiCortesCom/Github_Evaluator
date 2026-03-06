@@ -13,6 +13,7 @@ import yaml
 
 from src.evaluator import StudentEvaluator
 from src.reporter import ReportGenerator
+from src.classroom_scraper import ClassroomScraper
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,8 +74,22 @@ def main():
     
     parser.add_argument(
         "--org",
-        required=True,
-        help="GitHub organization or owner name"
+        default=None,
+        help="GitHub organization or owner name (required unless --assignment-id is used)"
+    )
+
+    parser.add_argument(
+        "--assignment-id",
+        type=int,
+        default=None,
+        help="GitHub Classroom assignment ID (use instead of --org/--pattern)"
+    )
+
+    parser.add_argument(
+        "--classroom-id",
+        type=int,
+        default=None,
+        help="GitHub Classroom ID (list assignments for this classroom and exit)"
     )
     
     parser.add_argument(
@@ -156,15 +171,55 @@ def main():
         if total_weight != 100:
             logger.error(f"Scoring weights must sum to 100, but got {total_weight}. Current: {weights}")
             sys.exit(1)
-        
-        logger.info(f"Starting evaluation of organization: {args.org}")
-        logger.info(f"Repository pattern: {args.pattern or 'any'}")
-        
-        # Create evaluator
-        evaluator = StudentEvaluator(config)
-        
-        # Run evaluation
-        results = evaluator.evaluate_organization(args.org, args.pattern)
+
+        token = config["github"]["token"]
+
+        # ------------------------------------------------------------------
+        # --classroom-id: list assignments and exit (no evaluation)
+        # ------------------------------------------------------------------
+        if args.classroom_id:
+            scraper = ClassroomScraper(token)
+            classroom = scraper.get_classroom(args.classroom_id)
+            if not classroom:
+                logger.error(f"Classroom {args.classroom_id} not found or not accessible.")
+                return 1
+            print(f"\nClassroom: {classroom.get('name')} (id={classroom.get('id')})")
+            assignments = scraper.list_assignments(args.classroom_id)
+            if not assignments:
+                print("  No assignments found.")
+            else:
+                print(f"  Assignments ({len(assignments)}):")
+                for a in assignments:
+                    title = a.get('title', '(no title)')
+                    a_type = a.get('type', '?')
+                    accepted = a.get('accepted', '?')
+                    print(f"    [{a['id']}] {title} — type={a_type} accepted={accepted}")
+            return 0
+
+        # ------------------------------------------------------------------
+        # --assignment-id: evaluate a specific Classroom assignment
+        # ------------------------------------------------------------------
+        if args.assignment_id:
+            logger.info(f"Starting Classroom evaluation for assignment ID: {args.assignment_id}")
+            evaluator = StudentEvaluator(config)
+            results = evaluator.evaluate_classroom_assignment(args.assignment_id)
+
+        # ------------------------------------------------------------------
+        # --org: fall back to organization-wide evaluation
+        # ------------------------------------------------------------------
+        elif args.org:
+            logger.info(f"Starting evaluation of organization: {args.org}")
+            logger.info(f"Repository pattern: {args.pattern or 'any'}")
+            evaluator = StudentEvaluator(config)
+            results = evaluator.evaluate_organization(args.org, args.pattern)
+
+        else:
+            logger.error(
+                "You must specify either --org (for organization-wide evaluation) "
+                "or --assignment-id (for a specific Classroom assignment), "
+                "or --classroom-id (to list assignments)."
+            )
+            sys.exit(1)
         
         logger.info(f"Evaluation complete. Processed {len(results)} repositories.")
         
