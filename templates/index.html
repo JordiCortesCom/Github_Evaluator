@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Control Panel – GitHub Evaluator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <h1 class="mb-1 fw-bold">
+      <i class="bi bi-sliders text-primary me-2"></i>Control Panel
+    </h1>
+    <p class="text-muted mb-4">
+      Configure your evaluation parameters and launch an analysis.
+    </p>
+
+    <form method="post" action="{{ url_for('evaluate') }}" id="evalForm" novalidate>
+
+      <!-- ── Authentication ── -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white fw-semibold">
+          <i class="bi bi-key me-2"></i>Authentication
+        </div>
+        <div class="card-body">
+          <label for="token" class="form-label">
+            GitHub Personal Access Token
+            <span class="text-danger">*</span>
+          </label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" class="form-control" id="token" name="token"
+                   placeholder="ghp_…  (or set GITHUB_TOKEN env var)"
+                   autocomplete="off">
+          </div>
+          <div class="form-text">
+            Needs <code>repo:public_repo</code> and <code>read:org</code> scopes.
+            For Classroom features also add <code>manage_classrooms</code>.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Repository selection ── -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white fw-semibold">
+          <i class="bi bi-folder2-open me-2"></i>Repository Selection
+        </div>
+        <div class="card-body">
+
+          <ul class="nav nav-tabs mb-3" id="repoTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="org-tab" data-bs-toggle="tab"
+                      data-bs-target="#orgPanel" type="button" role="tab">
+                <i class="bi bi-building me-1"></i>Organization
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="assignment-tab" data-bs-toggle="tab"
+                      data-bs-target="#assignmentPanel" type="button" role="tab">
+                <i class="bi bi-mortarboard me-1"></i>Classroom Assignment
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="repoTabContent">
+
+            <!-- Organisation tab -->
+            <div class="tab-pane fade show active" id="orgPanel" role="tabpanel">
+              <div class="mb-3">
+                <label for="org" class="form-label">Organization / Owner</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-building"></i></span>
+                  <input type="text" class="form-control" id="org" name="org"
+                         placeholder="e.g. my-classroom"
+                         value="{{ default_org }}">
+                </div>
+              </div>
+              <div class="mb-1">
+                <label for="pattern" class="form-label">Repository name filter <span class="text-muted">(optional)</span></label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+                  <input type="text" class="form-control" id="pattern" name="pattern"
+                         placeholder="e.g. assignment-">
+                </div>
+                <div class="form-text">Only repos whose name contains this string will be evaluated.</div>
+              </div>
+            </div>
+
+            <!-- Assignment tab -->
+            <div class="tab-pane fade" id="assignmentPanel" role="tabpanel">
+              <div class="mb-1">
+                <label for="assignment_id" class="form-label">Assignment ID</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-123"></i></span>
+                  <input type="number" class="form-control" id="assignment_id"
+                         name="assignment_id" placeholder="e.g. 12345" min="1">
+                </div>
+                <div class="form-text">
+                  Find the assignment ID via
+                  <code>python main.py --classroom-id &lt;id&gt;</code>.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Evaluation period ── -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white fw-semibold">
+          <i class="bi bi-calendar-range me-2"></i>Evaluation Period
+        </div>
+        <div class="card-body row g-3">
+          <div class="col-sm-6">
+            <label for="start_date" class="form-label">Start date</label>
+            <input type="date" class="form-control" id="start_date" name="start_date"
+                   value="{{ default_start }}">
+          </div>
+          <div class="col-sm-6">
+            <label for="end_date" class="form-label">End date</label>
+            <input type="date" class="form-control" id="end_date" name="end_date"
+                   value="{{ default_end }}">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Scoring weights ── -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white fw-semibold d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-sliders2 me-2"></i>Scoring Weights</span>
+          <span class="badge bg-secondary" id="weightTotal">Total: 100%</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Weights must sum to <strong>100</strong>.</p>
+          {% set weight_items = [
+            ('commit_frequency',      'Commit Frequency',       'bi-graph-up'),
+            ('commit_quality',        'Commit Message Quality',  'bi-chat-left-text'),
+            ('individual_contribution','Individual Contribution','bi-people'),
+            ('branch_strategy',       'Branch Strategy',         'bi-diagram-2'),
+            ('documentation',         'Documentation',           'bi-file-earmark-text'),
+          ] %}
+          {% for key, label, icon in weight_items %}
+          <div class="mb-3">
+            <label for="scoring_{{ key }}" class="form-label">
+              <i class="bi {{ icon }} me-1 text-primary"></i>{{ label }}
+              <span class="weight-display fw-bold ms-1" id="val_{{ key }}">{{ scoring.get(key, 20) }}%</span>
+            </label>
+            <input type="range" class="form-range weight-slider" min="0" max="100" step="5"
+                   id="scoring_{{ key }}"
+                   value="{{ scoring.get(key, 20) }}"
+                   data-label="val_{{ key }}">
+            <input type="hidden" name="scoring_{{ key }}" id="hidden_{{ key }}"
+                   value="{{ scoring.get(key, 20) }}">
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ── Submit ── -->
+      <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+          <i class="bi bi-play-circle me-2"></i>Run Evaluation
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+
+  const sliders = document.querySelectorAll(".weight-slider");
+  const totalBadge = document.getElementById("weightTotal");
+  const submitBtn = document.getElementById("submitBtn");
+
+  function updateTotal() {
+    let sum = 0;
+    sliders.forEach(function (s) {
+      sum += parseInt(s.value, 10);
+      // update visible label
+      document.getElementById(s.dataset.label).textContent = s.value + "%";
+      // sync hidden input that carries the submitted value
+      document.getElementById("hidden_" + s.id.replace("scoring_", "")).value = s.value;
+    });
+    totalBadge.textContent = "Total: " + sum + "%";
+    if (sum === 100) {
+      totalBadge.classList.remove("bg-danger");
+      totalBadge.classList.add("bg-success");
+      submitBtn.disabled = false;
+    } else {
+      totalBadge.classList.remove("bg-success");
+      totalBadge.classList.add("bg-danger");
+      submitBtn.disabled = true;
+    }
+  }
+
+  sliders.forEach(function (s) {
+    s.addEventListener("input", updateTotal);
+  });
+
+  updateTotal();
+})();
+</script>
+{% endblock %}

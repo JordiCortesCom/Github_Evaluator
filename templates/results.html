@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Results – GitHub Evaluator{% endblock %}
+
+{% block head_extra %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+        integrity="sha256-oVuCDxF9qxl3VvAqqMagngXjJV6t89GV4W7K5Vv9HMA="
+        crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<!-- ── Page header ── -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h1 class="fw-bold mb-1">
+      <i class="bi bi-bar-chart-line text-primary me-2"></i>Evaluation Results
+    </h1>
+    <p class="text-muted mb-0">
+      <i class="bi bi-building me-1"></i><strong>{{ org_label }}</strong>
+      &nbsp;|&nbsp;
+      <i class="bi bi-clock me-1"></i>{{ evaluated_at[:19].replace('T', ' ') }} UTC
+      &nbsp;|&nbsp;
+      <i class="bi bi-people me-1"></i>{{ total }} repositories
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-sliders me-1"></i>New Evaluation
+    </a>
+    <a href="{{ url_for('clear') }}" class="btn btn-outline-danger">
+      <i class="bi bi-trash me-1"></i>Clear
+    </a>
+  </div>
+</div>
+
+<!-- ── Summary statistics ── -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-primary">{{ total }}</div>
+        <div class="text-muted small mt-1">Repositories</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="display-6 fw-bold {{ 'text-success' if avg_score >= 70 else 'text-warning' if avg_score >= 50 else 'text-danger' }}">
+          {{ avg_score }}
+        </div>
+        <div class="text-muted small mt-1">Average Score</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-success">{{ max_score }}</div>
+        <div class="text-muted small mt-1">Highest Score</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-danger">{{ min_score }}</div>
+        <div class="text-muted small mt-1">Lowest Score</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts row ── -->
+<div class="row g-4 mb-4">
+
+  <!-- Score per student -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-bar-chart me-2"></i>Score per Repository
+      </div>
+      <div class="card-body">
+        <canvas id="scoreChart" style="max-height:320px"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grade distribution (doughnut) -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-pie-chart me-2"></i>Grade Distribution
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="gradeChart" style="max-height:280px"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Average score per metric (radar) -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-pentagon me-2"></i>Average Score per Metric
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="radarChart" style="max-height:320px"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metric breakdown (horizontal bar) -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-bar-chart-steps me-2"></i>Metric Averages
+      </div>
+      <div class="card-body">
+        <canvas id="metricBarChart" style="max-height:320px"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detailed results table ── -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white fw-semibold d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>Individual Results</span>
+    <input type="text" class="form-control form-control-sm w-auto bg-secondary text-white border-0"
+           id="tableSearch" placeholder="🔍 Filter…" aria-label="Filter results">
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle" id="resultsTable">
+        <thead class="table-dark">
+          <tr>
+            <th>Student</th>
+            <th>Repository</th>
+            <th class="text-center">Score</th>
+            <th class="text-center">Grade</th>
+            <th class="text-center">Commit Freq.</th>
+            <th class="text-center">Commit Qual.</th>
+            <th class="text-center">Contribution</th>
+            <th class="text-center">Branching</th>
+            <th class="text-center">Docs</th>
+            <th>Feedback</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results | sort(attribute='final_score', reverse=true) %}
+          {% set score = r.final_score %}
+          <tr>
+            <td class="fw-semibold">{{ r.student }}</td>
+            <td><code class="small">{{ r.repository }}</code></td>
+            <td class="text-center">
+              <span class="badge rounded-pill
+                {% if score >= 90 %}bg-success
+                {% elif score >= 80 %}bg-primary
+                {% elif score >= 70 %}bg-info text-dark
+                {% elif score >= 60 %}bg-warning text-dark
+                {% else %}bg-danger{% endif %}">
+                {{ score }}
+              </span>
+            </td>
+            <td class="text-center fw-bold
+              {% if r.letter_grade == 'A' %}text-success
+              {% elif r.letter_grade == 'B' %}text-primary
+              {% elif r.letter_grade == 'C' %}text-info
+              {% elif r.letter_grade == 'D' %}text-warning
+              {% else %}text-danger{% endif %}">
+              {{ r.letter_grade }}
+            </td>
+            {% for key in ['commit_frequency','commit_quality','individual_contribution','branch_strategy','documentation'] %}
+            {% set ms = r.metrics.get(key, {}).get('score', 0) %}
+            <td class="text-center small">
+              <div class="progress" style="height:6px;min-width:60px;" title="{{ ms }}/100">
+                <div class="progress-bar
+                  {% if ms >= 80 %}bg-success{% elif ms >= 60 %}bg-warning{% else %}bg-danger{% endif %}"
+                  style="width:{{ ms }}%"></div>
+              </div>
+              <span class="text-muted">{{ ms }}</span>
+            </td>
+            {% endfor %}
+            <td class="small text-muted" style="max-width:240px">{{ r.feedback }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+
+  // ── Chart data injected from Flask ──────────────────────────────────
+  const data = {{ chart_data | safe }};
+
+  // Grade colours
+  const gradeColours = {
+    "A": "#198754", "B": "#0d6efd", "C": "#0dcaf0",
+    "D": "#ffc107", "F": "#dc3545", "N/A": "#6c757d"
+  };
+
+  // ── Helpers ─────────────────────────────────────────────────────────
+  function scoreColour(score) {
+    if (score >= 90) return "#198754";
+    if (score >= 80) return "#0d6efd";
+    if (score >= 70) return "#0dcaf0";
+    if (score >= 60) return "#ffc107";
+    return "#dc3545";
+  }
+
+  // ── Score per student (vertical bar) ────────────────────────────────
+  new Chart(document.getElementById("scoreChart"), {
+    type: "bar",
+    data: {
+      labels: data.students,
+      datasets: [{
+        label: "Final Score",
+        data: data.scores,
+        backgroundColor: data.scores.map(scoreColour),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function (ctx) { return " Score: " + ctx.raw + " / 100"; }
+          }
+        }
+      },
+      scales: {
+        y: { min: 0, max: 100, title: { display: true, text: "Score" } },
+        x: { ticks: { maxRotation: 45, minRotation: 20 } }
+      }
+    }
+  });
+
+  // ── Grade distribution (doughnut) ───────────────────────────────────
+  new Chart(document.getElementById("gradeChart"), {
+    type: "doughnut",
+    data: {
+      labels: data.grade_labels,
+      datasets: [{
+        data: data.grade_counts,
+        backgroundColor: data.grade_labels.map(g => gradeColours[g] || "#6c757d"),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: function (ctx) {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = Math.round((ctx.raw / total) * 100);
+              return " Grade " + ctx.label + ": " + ctx.raw + " (" + pct + "%)";
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // ── Average per metric (radar) ───────────────────────────────────────
+  new Chart(document.getElementById("radarChart"), {
+    type: "radar",
+    data: {
+      labels: data.metric_labels,
+      datasets: [{
+        label: "Class Average",
+        data: data.metric_averages,
+        backgroundColor: "rgba(13,110,253,0.15)",
+        borderColor: "#0d6efd",
+        pointBackgroundColor: "#0d6efd",
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        r: { min: 0, max: 100, ticks: { stepSize: 20 } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // ── Metric averages (horizontal bar) ────────────────────────────────
+  new Chart(document.getElementById("metricBarChart"), {
+    type: "bar",
+    data: {
+      labels: data.metric_labels,
+      datasets: [{
+        label: "Average Score",
+        data: data.metric_averages,
+        backgroundColor: data.metric_averages.map(scoreColour),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { min: 0, max: 100, title: { display: true, text: "Average Score" } }
+      }
+    }
+  });
+
+  // ── Table search ─────────────────────────────────────────────────────
+  document.getElementById("tableSearch").addEventListener("input", function () {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll("#resultsTable tbody tr").forEach(function (row) {
+      row.style.display = row.textContent.toLowerCase().includes(term) ? "" : "none";
+    });
+  });
+
+})();
+</script>
+{% endblock %}
