@@ -1,0 +1,66 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   GitHub Evaluator – custom styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+body {
+  font-size: 0.95rem;
+}
+
+/* Navbar brand */
+.navbar-brand {
+  letter-spacing: 0.03em;
+}
+
+/* Card consistency */
+.card {
+  border: none;
+  border-radius: 0.6rem;
+}
+
+.card-header {
+  border-radius: 0.6rem 0.6rem 0 0 !important;
+}
+
+/* Display numbers in summary cards */
+.display-6 {
+  font-size: 2.4rem;
+}
+
+/* Progress bars in table */
+.progress {
+  border-radius: 3px;
+}
+
+/* Table tweaks */
+#resultsTable th {
+  white-space: nowrap;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#resultsTable td {
+  vertical-align: middle;
+}
+
+/* Weight badge */
+#weightTotal {
+  font-size: 0.85rem;
+  min-width: 90px;
+  text-align: center;
+}
+
+/* Range slider */
+.form-range:focus {
+  outline: none;
+}
+
+/* Flash messages */
+.alert {
+  border-radius: 0.5rem;
+}
+
+/* Footer */
+footer {
+  font-size: 0.8rem;
+}
