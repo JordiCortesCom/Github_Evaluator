@@ -73,10 +73,24 @@ grading:
 
 ## Usage
 
-### Basic Evaluation
+### Basic Evaluation (Organization-wide)
 
 ```bash
 python main.py --org classroom-org --pattern assignment-
+```
+
+### GitHub Classroom Assignment Evaluation
+
+Evaluate all student repos for a specific assignment using the Classroom API:
+
+```bash
+python main.py --assignment-id 12345
+```
+
+### List Assignments in a Classroom
+
+```bash
+python main.py --classroom-id 9876
 ```
 
 ### Advanced Options
@@ -97,13 +111,18 @@ python main.py \
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `--config` | Config YAML file path | `config/default_config.yaml` |
-| `--org` | GitHub organization name | **Required** |
+| `--org` | GitHub organization name | Required unless `--assignment-id` used |
+| `--assignment-id` | GitHub Classroom assignment ID | None |
+| `--classroom-id` | GitHub Classroom ID (lists assignments and exits) | None |
 | `--pattern` | Repository name filter | None (all repos) |
 | `--token` | GitHub personal access token | Uses GITHUB_TOKEN env var |
 | `--output-dir` | Report output directory | `./reports` |
 | `--start-date` | Evaluation period start (YYYY-MM-DD) | From config |
 | `--end-date` | Evaluation period end (YYYY-MM-DD) | From config |
 | `--formats` | Output formats (csv json txt) | All formats |
+
+> **Note:** The `--assignment-id` and `--classroom-id` flags require a GitHub token
+> with the **`manage_classrooms`** scope (available in classic personal access tokens).
 
 ## Evaluation Metrics
 
@@ -184,7 +203,8 @@ python main.py \
 1. Go to https://github.com/settings/tokens
 2. Create a Personal Access Token
 3. Grant `repo:public_repo` and `read:org` permissions
-4. Set environment variable: `export GITHUB_TOKEN=ghp_xxxxx`
+4. For Classroom API features (`--assignment-id`, `--classroom-id`), also grant `manage_classrooms`
+5. Set environment variable: `export GITHUB_TOKEN=ghp_xxxxx`
 
 ## Project Structure
 
@@ -196,11 +216,14 @@ Github_Evaluator/
 │   └── default_config.yaml # Configuration file
 ├── src/
 │   ├── __init__.py
+│   ├── classroom_scraper.py # GitHub Classroom API client
 │   ├── github_client.py   # GitHub API wrapper
 │   ├── metrics.py         # Metric calculation
 │   ├── grader.py          # Scoring engine
 │   ├── evaluator.py       # Main orchestrator
 │   └── reporter.py        # Report generation
+├── tests/
+│   └── test_classroom_scraper.py  # Unit tests
 ├── reports/               # Generated reports (created on run)
 └── README.md
 ```
